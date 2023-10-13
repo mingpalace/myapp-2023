@@ -1,0 +1,35 @@
+body {
+  background-color: #cccccc;
+  width: 100%;
+}
+
+header {
+  font-size: 2em;
+  text-align: center;
+  padding: 0.25em;
+}
+
+.navbar {
+  text-align: center;
+  background-color: #000;
+}
+
+.juzhong {
+  margin-left: 25em;
+}
+.juzhong2 {
+  margin-left: 12em;
+}
+
+footer {
+  width: 100%;
+  height: 100px;
+  margin-top: 200px;
+  background-color: black;
+}
+
+.img-responsive {
+  width: 50rem;
+  margin-left: 5rem;
+  margin-top: 0;
+}

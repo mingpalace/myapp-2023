@@ -1,0 +1,25 @@
+<h1 class="juzhong2">Comments</h1>
+
+{{#if errorMessages.length}}
+  <p>Couldn't create the comment because:</p>
+  <ul>
+    {{#each errorMessages}}
+      <li>{{this}}</li>
+    {{/each}}
+  </ul>
+{{/if}}
+
+<form action="/comments/create" method="post">
+  <div class="juzhong">
+    <div style="margin-bottom:5px">
+      Comments:
+      <input type="text" name="comment" value="{{comment}}" />
+    </div>
+    <div style="margin-bottom:5px">
+      Username:
+      <input type="text" name="username" value="{{username}}" />
+    </div>
+    <input type="submit" value="Create" />
+  </div>
+
+</form>
