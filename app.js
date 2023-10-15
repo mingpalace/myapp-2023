@@ -18,7 +18,7 @@ const db = new sqlite3.Database("JinmingWang-database.db");
 
 db.run(`
 CREATE TABLE IF NOT EXISTS musics (
-    id INTEGER PRIMARY KEY,
+    mid INTEGER PRIMARY KEY,
     title TEXT,
     musicGenre TEXT,
     grade INTEGER
@@ -27,19 +27,25 @@ CREATE TABLE IF NOT EXISTS musics (
 
 db.run(`
 CREATE TABLE IF NOT EXISTS artists (
-     id INTEGER PRIMARY KEY,
+     aid INTEGER PRIMARY KEY,
      artistName TEXT,
-     type TEXT
+     type TEXT,
+     mid INTEGER,
+     FOREIGN KEY (mid) REFERENCES musics (mid)
      )
 `);
 
 db.run(`
 CREATE TABLE IF NOT EXISTS comments (
-     id INTEGER PRIMARY KEY,
+     cid INTEGER PRIMARY KEY,
+     mid INTEGER,
      comment TEXT,
-     username TEXT
+     FOREIGN KEY (mid) REFERENCES musics (mid)
      )
 `);
+
+db.run("PRAGMA foreign_keys = ON");
+
 
 const app = express();
 
@@ -98,10 +104,6 @@ app.get("/musics/create", function (request, response) {
 app.get("/artists/create", function (request, response) {
   response.render("create-artists.hbs");
 });
-//get comment create page
-app.get("/comments/create", function (request, response) {
-  response.render("create-comment.hbs");
-});
 
 app.get("/login", function (request, response) {
   response.render("login.hbs");
@@ -122,7 +124,6 @@ app.post("/login", function (request, response) {
   const password = request.body.password;
   const isMatch = bcrypt.compareSync(password, HASDED_VALUE_PASSWORD);
   if (username == ADMIN_USERNAME && isMatch) {
-    request.session.isAdmin = true;
     request.session.isLoggedIn = true;
     request.session.name = 'Jinming';
     response.redirect("/");
@@ -248,17 +249,17 @@ app.post("/musics/create", function (request, response) {
 //create music----
 
 //create artist----
-app.post("/artists/create", function (request, response) {
+app.post("/musics/:id/artists/create", function (request, response) {
   const artistName = request.body.artistName;
-  const type = request.body.type;
-
+  const mid =  request.params.id;
+  const type = request.body.artistType;
   const errorMessages = [];
-  
+
   if (artistName == "") {
-    errorMessages.push("Artist name can't be empty");
+    errorMessages.push("Artist can't be empty");
   } else if (artist_NAME_MAX_LENGTH < artistName.length) {
     errorMessages.push(
-      "Title may be at most " + artist_NAME_MAX_LENGTH + " characters long"
+      "Artist may be at most " + artist_NAME_MAX_LENGTH + " characters long"
     );
   }
 
@@ -267,8 +268,8 @@ app.post("/artists/create", function (request, response) {
   }
 
   if (errorMessages.length == 0) {
-    const query = `INSERT INTO artists (artistName,type) VALUES (?,?)`;
-    const values = [artistName, type];
+    const query = `INSERT INTO artists (artistName, type, mid) VALUES (?,?,?)`;
+    const values = [artistName, type, mid];
     db.run(query, values, function (error) {
       if (error) {
         errorMessages.push("Internal server error");
@@ -276,6 +277,7 @@ app.post("/artists/create", function (request, response) {
           errorMessages,
           artistName,
           type,
+          mid,
         };
         response.render("create-artists.hbs", model);
       } else {
@@ -287,6 +289,7 @@ app.post("/artists/create", function (request, response) {
       errorMessages,
       artistName,
       type,
+      mid,
     };
     response.render("create-artists.hbs", model);
   }
@@ -294,9 +297,10 @@ app.post("/artists/create", function (request, response) {
 //create artist----
 
 //create comment----
-app.post("/comments/create", function (request, response) {
+app.post("/musics/:id/comments/create", function (request, response) {
   const comment = request.body.comment;
-  const username = request.body.username;
+  const mid =  request.params.id;
+  // const artist = request.body.artist;
   const errorMessages = [];
 
   if (comment == "") {
@@ -312,15 +316,15 @@ app.post("/comments/create", function (request, response) {
   }
 
   if (errorMessages.length == 0) {
-    const query = `INSERT INTO comments (comment,username) VALUES (?,?)`;
-    const values = [comment, username];
+    const query = `INSERT INTO comments (mid,comment) VALUES (?,?)`;
+    const values = [mid,  comment];
     db.run(query, values, function (error) {
       if (error) {
         errorMessages.push("Internal server error");
         const model = {
           errorMessages,
           comment,
-          username,
+          mid,
         };
         response.render("create-comment.hbs", model);
       } else {
@@ -331,7 +335,7 @@ app.post("/comments/create", function (request, response) {
     const model = {
       errorMessages,
       comment,
-      username,
+      mid,
     };
     response.render("create-comment.hbs", model);
   }
@@ -342,7 +346,7 @@ app.post("/comments/create", function (request, response) {
 /// skip to the music
 app.get("/musics/:id", function (request, response) {
   const id = request.params.id;
-  const query = `SELECT * FROM musics WHERE id = ?`;
+  const query = `SELECT * FROM musics WHERE mid = ?`;
   const values = [id];
   db.get(query, values, function (error, music) {
     if (error) {
@@ -360,20 +364,20 @@ app.get("/musics/:id", function (request, response) {
 
 // delete——————————————————————————————————————————————————————————————————————————
 //delete music----
-app.post("/musics/deleteMusic/:id", function (request, response) {
+app.post("/musics/delete/:id", function (request, response) {
   const id = request.params.id;
   const errorMessages = [];
-
+  
   if (!request.session.isLoggedIn) {
     errorMessages.push("You haven't loggedin yet");
   }
 
   if (errorMessages.length == 0) {
-    const deleteSql = `DELETE FROM musics WHERE id = ?`;
+    const deleteSql = `DELETE FROM musics WHERE mid = ?`;
 
     db.run(deleteSql, id, function (error) {
       if (error) {
-        errorMessages.push("Wrong code");
+        errorMessages.push("Wrong code, maybe please delete your comments or artist about this music");
         const model = {
           errorMessages,
           id,
@@ -405,7 +409,7 @@ app.post("/artists/deleteArtist/:id", function (request, response) {
   }
 
   if (errorMessages.length == 0) {
-    const deleteSql = `DELETE FROM artists WHERE id = ?`;
+    const deleteSql = `DELETE FROM artists WHERE aid = ?`;
     db.run(deleteSql, id, function (error) {
       if (error) {
         errorMessages.push("Wrong code");
@@ -439,7 +443,7 @@ app.post("/comments/deleteComment/:id", function (request, response) {
   }
 
   if (errorMessages.length == 0) {
-    const deleteSql = `DELETE FROM comments WHERE id = ?`;
+    const deleteSql = `DELETE FROM comments WHERE cid = ?`;
 
     db.run(deleteSql, id, function (error) {
       if (error) {
@@ -473,7 +477,7 @@ app.post("/musics/update/:id", function (request, response) {
   const id = request.params.id;
   const grade = parseInt(request.body.grade, 10);
   const title = request.body.title;
-  const musicGenre = request.body.genre;
+  const musicGenre = request.body.musicGenre;
   const errorMessages = [];
 
   if (isNaN(grade)) {
@@ -489,7 +493,7 @@ app.post("/musics/update/:id", function (request, response) {
   }
 
   if (errorMessages.length == 0) {
-    const update_sql = `UPDATE musics SET title = ?, musicGenre =?, grade = ? WHERE id = ?`;
+    const update_sql = `UPDATE musics SET title = ?, musicGenre =?, grade = ? WHERE mid = ?`;
     const update_info = [title, musicGenre, grade, id];
 
     db.run(update_sql, update_info, function (error) {
@@ -502,7 +506,7 @@ app.post("/musics/update/:id", function (request, response) {
           musicGenre,
           grade,
         };
-        response.render(model);
+        response.render('musics.hbs',model);
       } else {
         response.redirect("/musics");
       }
@@ -515,7 +519,7 @@ app.post("/musics/update/:id", function (request, response) {
       musicGenre,
       grade,
     };
-    response.render(model);
+    response.render('musics.hbs', model);
   }
 });
 //update music----
@@ -532,7 +536,7 @@ app.post("/artists/update/:id", function (request, response) {
   }
 
   if (errorMessages.length == 0) {
-    const update_sql = `UPDATE artists SET artistName = ?, type =? WHERE id = ?`;
+    const update_sql = `UPDATE artists SET artistName = ?, type =? WHERE aid = ?`;
     const update_info = [artistName, type, id];
 
     db.run(update_sql, update_info, function (error) {
@@ -544,7 +548,7 @@ app.post("/artists/update/:id", function (request, response) {
           artistName,
           type,
         };
-        response.render(model);
+        response.render('artists.hbs', model);
       } else {
         response.redirect("/artists");
       }
@@ -555,7 +559,7 @@ app.post("/artists/update/:id", function (request, response) {
       artistName,
       type,
     };
-    response.render(model);
+    response.render('artists.hbs', model);
   }
 });
 
@@ -565,7 +569,6 @@ app.post("/artists/update/:id", function (request, response) {
 app.post("/comments/update/:id", function (request, response) {
   const id = request.params.id;
   const comment = request.body.comment;
-  const username = request.body.username;
   const errorMessages = [];
 
   if (!request.session.isLoggedIn) {
@@ -573,8 +576,8 @@ app.post("/comments/update/:id", function (request, response) {
   }
 
   if (errorMessages.length == 0) {
-    const update_sql = `UPDATE comments SET comment = ?, username =? WHERE id = ?`;
-    const update_info = [comment, username, id];
+    const update_sql = `UPDATE comments SET comment = ? WHERE cid = ?`;
+    const update_info = [comment, id];
 
     db.run(update_sql, update_info, function (error) {
       if (error) {
@@ -583,9 +586,8 @@ app.post("/comments/update/:id", function (request, response) {
           errorMessages,
           id,
           comment,
-          username,
         };
-        response.render(model);
+        response.render('comments.hbs', model);
       } else {
         response.redirect("/comments");
       }
@@ -594,9 +596,8 @@ app.post("/comments/update/:id", function (request, response) {
     const model = {
       errorMessages,
       comment,
-      username,
     };
-    response.render(model);
+    response.render('comments.hbs', model);
   }
 });
 //update commnet----
